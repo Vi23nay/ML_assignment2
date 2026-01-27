@@ -19,6 +19,7 @@ from sklearn.metrics import (
     classification_report,
     roc_curve
 )
+from sklearn.tree import plot_tree
 import os
 import sys
 
@@ -27,6 +28,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'model'))
 
 # Import models
 from model.logistic import LogisticRegression
+from model.decision_tree import DecisionTreeClassifier
 
 # Page configuration
 st.set_page_config(
@@ -112,6 +114,17 @@ def train_model(model_name, X_train, y_train):
         )
         model.fit(X_train, y_train)
         return model
+    elif model_name == "Decision Tree":
+        model = DecisionTreeClassifier(
+            max_depth=10,
+            min_samples_split=20,
+            min_samples_leaf=10,
+            class_weight='balanced',
+            random_state=42,
+            criterion='gini'
+        )
+        model.fit(X_train, y_train)
+        return model
     else:
         return None
 
@@ -162,9 +175,14 @@ def plot_metrics_bar(metrics_data, title="Performance Metrics"):
     return fig
 
 def main():
-    # Header
-    st.markdown('<h1 class="main-header">🤖 Machine Learning Classification Models</h1>', unsafe_allow_html=True)
-    st.markdown("### Interactive model evaluation and prediction interface")
+    # Header with Dataset Info toggle on the right
+    col_left, col_right = st.columns([4, 1])
+    with col_left:
+        st.markdown('<h1 class="main-header">🤖 Machine Learning Classification Models</h1>', unsafe_allow_html=True)
+        st.markdown("### Interactive model evaluation and prediction interface")
+    with col_right:
+        st.write("")  # Spacer
+        show_dataset_info = st.checkbox("📊 Dataset Info", value=False)
     
     # Sidebar
     st.sidebar.title("⚙️ Configuration")
@@ -192,7 +210,7 @@ def main():
     """)
     
     # Available models
-    implemented_models = ["Logistic Regression"]
+    implemented_models = ["Logistic Regression", "Decision Tree"]
     
     if selected_model not in implemented_models:
         st.warning(f"⚠️ {selected_model} is not yet implemented. Please select 'Logistic Regression'.")
@@ -209,8 +227,8 @@ def main():
     # Display dataset info
     st.sidebar.success(f"✅ Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
     
-    # Show dataset option
-    if st.sidebar.checkbox("Show Dataset Info"):
+    # Show dataset option (moved to top right)
+    if show_dataset_info:
         st.subheader("📊 Dataset Overview")
         col1, col2, col3 = st.columns(3)
         
@@ -232,6 +250,17 @@ def main():
         
         st.write("**First 5 rows:**")
         st.dataframe(df.head(), use_container_width=True)
+        
+        # Add download button in Dataset Info section
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Complete Dataset",
+            data=csv,
+            file_name="complete_dataset.csv",
+            mime="text/csv",
+            help="Download the complete dataset with all rows and columns",
+            use_container_width=True
+        )
         
         st.write("**Target Distribution:**")
         target_counts = df['Target'].value_counts()
@@ -392,6 +421,7 @@ def main():
     with col2:
         st.subheader("Feature Importance")
         if hasattr(model, 'coef_'):
+            # For linear models like Logistic Regression
             feature_importance = pd.DataFrame({
                 'Feature': feature_names,
                 'Coefficient': model.coef_[0]
@@ -411,8 +441,45 @@ def main():
             plt.tight_layout()
             st.pyplot(fig)
             plt.close(fig)
+        elif hasattr(model, 'feature_importances_'):
+            # For tree-based models like Decision Tree
+            feature_importance = pd.DataFrame({
+                'Feature': feature_names,
+                'Importance': model.feature_importances_
+            })
+            feature_importance = feature_importance.sort_values('Importance', ascending=False).head(10)
+            
+            fig, ax = plt.subplots(figsize=(7, 5))
+            ax.barh(range(len(feature_importance)), feature_importance['Importance'], color='green')
+            ax.set_yticks(range(len(feature_importance)))
+            ax.set_yticklabels(feature_importance['Feature'], fontsize=9)
+            ax.set_xlabel('Importance', fontsize=10)
+            ax.set_title('Top 10 Feature Importance', fontsize=12, fontweight='bold')
+            ax.grid(True, alpha=0.3, axis='x')
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close(fig)
         else:
             st.info("Feature importance not available for this model.")
+    
+    # Decision Tree Structure (only for Decision Tree model)
+    if selected_model == "Decision Tree":
+        st.header("🌳 Decision Tree Structure")
+        st.info("Showing tree structure limited to depth 3 for readability")
+        
+        fig_tree, ax = plt.subplots(figsize=(20, 12))
+        plot_tree(model.model, 
+                  feature_names=feature_names.tolist(),
+                  class_names=['Class 0', 'Class 1'],
+                  filled=True,
+                  rounded=True,
+                  fontsize=8,
+                  ax=ax,
+                  max_depth=3)
+        plt.title('Decision Tree Structure (Max Depth 3)', fontsize=14, fontweight='bold')
+        plt.tight_layout()
+        st.pyplot(fig_tree)
+        plt.close(fig_tree)
     
     # Classification Report
     st.header("📋 Detailed Classification Report")
