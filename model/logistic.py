@@ -1,84 +1,41 @@
-# Logistic Regression Implementation (From Scratch)
+# Logistic Regression Implementation using Sklearn
 
 import numpy as np
+from sklearn.linear_model import LogisticRegression as SklearnLogisticRegression
 
 class LogisticRegression:
     """
-    Logistic Regression classifier implemented from scratch using gradient descent.
+    Logistic Regression classifier using sklearn library.
     
     Parameters:
     -----------
-    learning_rate : float, default=0.01
-        Learning rate for gradient descent
-    n_iterations : int, default=1000
-        Number of iterations for gradient descent
-    fit_intercept : bool, default=True
-        Whether to add intercept term
-    verbose : bool, default=False
-        Whether to print loss during training
+    max_iter : int, default=5000
+        Maximum number of iterations for solver to converge
+    class_weight : str or dict, default='balanced'
+        Weights associated with classes
+    random_state : int, default=42
+        Random state for reproducibility
+    solver : str, default='lbfgs'
+        Algorithm to use in optimization problem
     """
     
-    def __init__(self, learning_rate=0.01, n_iterations=1000, fit_intercept=True, verbose=False, class_weight=None):
-        self.learning_rate = learning_rate
-        self.n_iterations = n_iterations
-        self.fit_intercept = fit_intercept
-        self.verbose = verbose
+    def __init__(self, max_iter=5000, class_weight='balanced', random_state=42, solver='lbfgs'):
+        self.max_iter = max_iter
         self.class_weight = class_weight
-        self.weights = None
-        self.bias = None
-        self.losses = []
-    
-    def _sigmoid(self, z):
-        """
-        Sigmoid activation function
-        
-        Parameters:
-        -----------
-        z : array-like
-            Linear combination of weights and features
-            
-        Returns:
-        --------
-        array-like
-            Sigmoid of z
-        """
-        # Clip values to prevent overflow
-        z = np.clip(z, -500, 500)
-        # 1 / (1 + e^(-z))
-        return 1 / (1 + np.exp(-z))
-    
-    def _add_intercept(self, X):
-        """Add intercept column to feature matrix"""
-        intercept = np.ones((X.shape[0], 1))
-        return np.concatenate((intercept, X), axis=1)
-    
-    def _compute_loss(self, y_true, y_pred):
-        """
-        Compute binary cross-entropy loss
-        
-        Parameters:
-        -----------
-        y_true : array-like
-            True labels
-        y_pred : array-like
-            Predicted probabilities
-            
-        Returns:
-        --------
-        float
-            Binary cross-entropy loss
-        """
-        # Clip predictions to prevent log(0)
-        epsilon = 1e-15
-        y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
-        
-        n_samples = len(y_true)
-        loss = -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
-        return loss
+        self.random_state = random_state
+        self.solver = solver
+        self.model = SklearnLogisticRegression(
+            max_iter=max_iter,
+            class_weight=class_weight,
+            random_state=random_state,
+            solver=solver
+        )
+        self.coef_ = None
+        self.intercept_ = None
     
     def fit(self, X, y):
         """
-        Fit the logistic regression model using gradient descent
+        Fit the logistic regression model
         
         Parameters:
         -----------
@@ -92,49 +49,9 @@ class LogisticRegression:
         self
             Fitted estimator
         """
-        # Convert to numpy arrays
-        X = np.array(X)
-        y = np.array(y)
-        
-        n_samples, n_features = X.shape
-        
-        # Calculate sample weights based on class weights
-        sample_weights = np.ones(n_samples)
-        if self.class_weight == 'balanced':
-            classes = np.unique(y)
-            n_samples_per_class = np.bincount(y.astype(int))
-            weights_per_class = n_samples / (len(classes) * n_samples_per_class)
-            
-            for i, cls in enumerate(classes):
-                sample_weights[y == cls] = weights_per_class[i]
-        
-        # Initialize weights and bias
-        self.weights = np.zeros(n_features)
-        self.bias = 0
-        
-        # Gradient descent
-        for i in range(self.n_iterations):
-            # Linear model
-            linear_model = np.dot(X, self.weights) + self.bias
-            
-            # Apply sigmoid function
-            y_predicted = self._sigmoid(linear_model)
-            
-            # Compute weighted gradients
-            errors = (y_predicted - y) * sample_weights
-            dw = (1 / n_samples) * np.dot(X.T, errors)
-            db = (1 / n_samples) * np.sum(errors)
-            
-            # Update parameters
-            self.weights -= self.learning_rate * dw
-            self.bias -= self.learning_rate * db
-            
-            # Compute and store loss
-            if self.verbose and i % 100 == 0:
-                loss = self._compute_loss(y, y_predicted)
-                self.losses.append(loss)
-                print(f"Iteration {i}: Loss = {loss:.4f}")
-        
+        self.model.fit(X, y)
+        self.coef_ = self.model.coef_
+        self.intercept_ = self.model.intercept_
         return self
     
     def predict_proba(self, X):
@@ -148,14 +65,12 @@ class LogisticRegression:
             
         Returns:
         --------
-        array-like, shape (n_samples,)
-            Predicted probabilities for class 1
+        array-like, shape (n_samples, 2)
+            Predicted probabilities for each class
         """
-        X = np.array(X)
-        linear_model = np.dot(X, self.weights) + self.bias
-        return self._sigmoid(linear_model)
+        return self.model.predict_proba(X)
     
-    def predict(self, X, threshold=0.5):
+    def predict(self, X):
         """
         Predict class labels
         
@@ -163,16 +78,13 @@ class LogisticRegression:
         -----------
         X : array-like, shape (n_samples, n_features)
             Samples
-        threshold : float, default=0.5
-            Classification threshold
             
         Returns:
         --------
         array-like, shape (n_samples,)
             Predicted class labels (0 or 1)
         """
-        probabilities = self.predict_proba(X)
-        return (probabilities >= threshold).astype(int)
+        return self.model.predict(X)
     
     def score(self, X, y):
         """
@@ -190,8 +102,7 @@ class LogisticRegression:
         float
             Accuracy score
         """
-        predictions = self.predict(X)
-        return np.mean(predictions == y)
+        return self.model.score(X, y)
 
 
 # ============================================================================
@@ -213,7 +124,6 @@ if __name__ == "__main__":
         classification_report,
         roc_curve
     )
-    from sklearn.utils.class_weight import compute_class_weight
     import os
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -265,33 +175,25 @@ if __name__ == "__main__":
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    # Handle class imbalance with class weights
-    class_weights = compute_class_weight(
-        class_weight='balanced',
-        classes=np.unique(y_train),
-        y=y_train
-    )
-    print(f"\nClass weights: {dict(zip(np.unique(y_train), class_weights))}")
-
-    # Train Logistic Regression model
+    # Train Logistic Regression model using sklearn
     print("\n" + "="*60)
-    print("Training Logistic Regression Model...")
+    print("Training Logistic Regression Model (sklearn)...")
     print("="*60)
 
     model = LogisticRegression(
-        learning_rate=0.01,
-        n_iterations=5000,
+        max_iter=5000,
         class_weight='balanced',
-        verbose=True
+        random_state=42,
+        solver='lbfgs'
     )
 
     model.fit(X_train_scaled, y_train)
 
-    # Make predictions with standard threshold
+    # Make predictions
     print("\nMaking predictions...")
-    y_train_pred = model.predict(X_train_scaled, threshold=0.5)
-    y_test_pred = model.predict(X_test_scaled, threshold=0.5)
-    y_test_proba = model.predict_proba(X_test_scaled)
+    y_train_pred = model.predict(X_train_scaled)
+    y_test_pred = model.predict(X_test_scaled)
+    y_test_proba = model.predict_proba(X_test_scaled)[:, 1]
 
     # Evaluate the model
     print("\n" + "="*60)
@@ -378,22 +280,27 @@ if __name__ == "__main__":
     axes[0, 1].legend(loc="lower right")
     axes[0, 1].grid(True, alpha=0.3)
 
-    # 3. Training Loss Curve
-    if model.losses:
-        axes[1, 0].plot(range(0, model.n_iterations, 100), model.losses, 
-                        color='red', linewidth=2, marker='o', markersize=4)
-        axes[1, 0].set_xlabel('Iteration', fontsize=12)
-        axes[1, 0].set_ylabel('Loss (Binary Cross-Entropy)', fontsize=12)
-        axes[1, 0].set_title('Training Loss Over Iterations', fontsize=14, fontweight='bold')
-        axes[1, 0].grid(True, alpha=0.3)
-        axes[1, 0].text(0.5, 0.95, f'Final Loss: {model.losses[-1]:.4f}', 
-                        ha='center', va='top', transform=axes[1, 0].transAxes, 
-                        fontsize=10, bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    # 3. Model Information
+    model_info = f"""Model: Logistic Regression (sklearn)
+Solver: {model.solver}
+Max Iterations: {model.max_iter}
+Class Weight: {model.class_weight}
+Number of Features: {len(model.coef_[0])}
+Intercept: {model.intercept_[0]:.4f}
+
+Training Samples: {len(X_train_scaled)}
+Test Samples: {len(X_test_scaled)}
+"""
+    axes[1, 0].text(0.1, 0.9, model_info, fontsize=12, family='monospace',
+                    verticalalignment='top', transform=axes[1, 0].transAxes,
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    axes[1, 0].axis('off')
+    axes[1, 0].set_title('Model Information', fontsize=14, fontweight='bold')
 
     # 4. Feature Importance (Top 10 features by coefficient magnitude)
     feature_importance = pd.DataFrame({
         'Feature': X.columns,
-        'Coefficient': model.weights
+        'Coefficient': model.coef_[0]
     })
     feature_importance['Abs_Coefficient'] = np.abs(feature_importance['Coefficient'])
     feature_importance = feature_importance.sort_values('Abs_Coefficient', ascending=False).head(10)
@@ -410,7 +317,6 @@ if __name__ == "__main__":
     plt.tight_layout()
     
     # Save the figure
-    output_path = '../visualizations/logistic_regression_analysis.png' if os.path.exists('../visualizations') or os.makedirs('../visualizations', exist_ok=True) else 'logistic_regression_analysis.png'
     os.makedirs('../visualizations', exist_ok=True)
     plt.savefig('../visualizations/logistic_regression_analysis.png', dpi=300, bbox_inches='tight')
     print(f"\n✓ Visualization saved to: visualizations/logistic_regression_analysis.png")
@@ -451,5 +357,5 @@ if __name__ == "__main__":
     plt.show()
 
     print("\n" + "="*60)
-    print("Training Complete!")
+    print("✓ Training and Evaluation Complete!")
     print("="*60)
