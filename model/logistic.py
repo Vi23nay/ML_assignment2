@@ -106,7 +106,7 @@ class LogisticRegression:
 
 
 # ============================================================================
-# Training and Evaluation on clean_data.csv
+# Training and Evaluation on loan_data.csv
 # ============================================================================
 
 if __name__ == "__main__":
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
     # Load the dataset (adjust path based on current directory)
     print("Loading dataset...")
-    data_path = '../clean_data.csv' if os.path.exists('../clean_data.csv') else 'clean_data.csv'
+    data_path = '../loan_data.csv' if os.path.exists('../loan_data.csv') else 'loan_data.csv'
     df = pd.read_csv(data_path)
 
     print(f"Dataset shape: {df.shape}")
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     print(df['Target'].value_counts())
 
     # Separate features and target
-    X = df.drop(['ID', 'Target'], axis=1)
+    X = df.drop(['Target'], axis=1)
     y = df['Target']
 
     print(f"\nFeature columns: {X.columns.tolist()}")

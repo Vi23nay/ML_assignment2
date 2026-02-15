@@ -1,35 +1,62 @@
-# Naive Bayes Classifier Implementation using Sklearn
+# XGBoost Classifier Implementation using Sklearn/XGBoost
 
 import numpy as np
-from sklearn.naive_bayes import GaussianNB as SklearnGaussianNB
+from xgboost import XGBClassifier as SklearnXGBClassifier
 
-class NaiveBayesClassifier:
+class XGBoostClassifier:
     """
-    Gaussian Naive Bayes classifier using sklearn library.
+    XGBoost classifier using xgboost library.
     
     Parameters:
     -----------
-    var_smoothing : float, default=1e-9
-        Portion of the largest variance of all features that is added to
-        variances for calculation stability
-    priors : array-like, default=None
-        Prior probabilities of the classes. If specified, the priors are not
-        adjusted according to the data.
+    n_estimators : int, default=100
+        Number of boosting rounds
+    max_depth : int, default=6
+        Maximum depth of a tree
+    learning_rate : float, default=0.1
+        Step size shrinkage to prevent overfitting
+    subsample : float, default=0.8
+        Subsample ratio of the training instances
+    colsample_bytree : float, default=0.8
+        Subsample ratio of columns when constructing each tree
+    scale_pos_weight : float, default=1
+        Balancing of positive and negative weights
+    random_state : int, default=42
+        Random state for reproducibility
+    use_label_encoder : bool, default=False
+        Whether to use label encoder
+    eval_metric : str, default='logloss'
+        Evaluation metric
     """
     
-    def __init__(self, var_smoothing=1e-9, priors=None):
-        self.var_smoothing = var_smoothing
-        self.priors = priors
-        self.model = SklearnGaussianNB(
-            var_smoothing=var_smoothing,
-            priors=priors
+    def __init__(self, n_estimators=100, max_depth=6, learning_rate=0.1, 
+                 subsample=0.8, colsample_bytree=0.8, scale_pos_weight=1,
+                 random_state=42, use_label_encoder=False, eval_metric='logloss'):
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.learning_rate = learning_rate
+        self.subsample = subsample
+        self.colsample_bytree = colsample_bytree
+        self.scale_pos_weight = scale_pos_weight
+        self.random_state = random_state
+        self.use_label_encoder = use_label_encoder
+        self.eval_metric = eval_metric
+        self.model = SklearnXGBClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            learning_rate=learning_rate,
+            subsample=subsample,
+            colsample_bytree=colsample_bytree,
+            scale_pos_weight=scale_pos_weight,
+            random_state=random_state,
+            use_label_encoder=use_label_encoder,
+            eval_metric=eval_metric
         )
-        self.class_prior_ = None
-        self.theta_ = None
+        self.feature_importances_ = None
     
     def fit(self, X, y):
         """
-        Fit the Naive Bayes model
+        Fit the XGBoost model
         
         Parameters:
         -----------
@@ -44,8 +71,7 @@ class NaiveBayesClassifier:
             Fitted estimator
         """
         self.model.fit(X, y)
-        self.class_prior_ = self.model.class_prior_
-        self.theta_ = self.model.theta_
+        self.feature_importances_ = self.model.feature_importances_
         return self
     
     def predict_proba(self, X):
@@ -153,6 +179,11 @@ if __name__ == "__main__":
             X[col] = le.fit_transform(X[col].astype(str))
             le_dict[col] = le
 
+    # Calculate scale_pos_weight for imbalanced data
+    neg_count = len(y[y == 0])
+    pos_count = len(y[y == 1])
+    scale_pos_weight = neg_count / pos_count if pos_count > 0 else 1
+
     # Split the data
     print("\nSplitting data into train and test sets (80-20 split)...")
     X_train, X_test, y_train, y_test = train_test_split(
@@ -168,13 +199,21 @@ if __name__ == "__main__":
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    # Train Naive Bayes model
+    # Train XGBoost model
     print("\n" + "="*60)
-    print("Training Naive Bayes Model (sklearn)...")
+    print("Training XGBoost Model...")
     print("="*60)
 
-    model = NaiveBayesClassifier(
-        var_smoothing=1e-9
+    model = XGBoostClassifier(
+        n_estimators=100,
+        max_depth=6,
+        learning_rate=0.1,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        scale_pos_weight=scale_pos_weight,
+        random_state=42,
+        use_label_encoder=False,
+        eval_metric='logloss'
     )
 
     model.fit(X_train_scaled, y_train)
@@ -227,8 +266,8 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("SUMMARY FOR README")
     print("="*60)
-    print("\nNaive Bayes Results:")
-    print(f"| Naive Bayes | {test_accuracy:.4f} | {test_auc:.4f} | {test_precision:.4f} | {test_recall:.4f} | {test_f1:.4f} | {test_mcc:.4f} |")
+    print("\nXGBoost Results:")
+    print(f"| XGBoost | {test_accuracy:.4f} | {test_auc:.4f} | {test_precision:.4f} | {test_recall:.4f} | {test_f1:.4f} | {test_mcc:.4f} |")
 
     # ========================================================================
     # VISUALIZATIONS
@@ -241,10 +280,10 @@ if __name__ == "__main__":
     plt.rcParams['figure.figsize'] = (15, 10)
 
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-    fig.suptitle('Naive Bayes - Model Performance Analysis', fontsize=16, fontweight='bold')
+    fig.suptitle('XGBoost - Model Performance Analysis', fontsize=16, fontweight='bold')
 
     # 1. Confusion Matrix
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Oranges', cbar=True, 
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Reds', cbar=True, 
                 xticklabels=['Class 0', 'Class 1'], 
                 yticklabels=['Class 0', 'Class 1'],
                 ax=axes[0, 0])
@@ -256,7 +295,7 @@ if __name__ == "__main__":
 
     # 2. ROC Curve
     fpr, tpr, thresholds = roc_curve(y_test, y_test_proba)
-    axes[0, 1].plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {test_auc:.4f})')
+    axes[0, 1].plot(fpr, tpr, color='crimson', lw=2, label=f'ROC curve (AUC = {test_auc:.4f})')
     axes[0, 1].plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random Classifier')
     axes[0, 1].set_xlim([0.0, 1.0])
     axes[0, 1].set_ylim([0.0, 1.05])
@@ -267,40 +306,42 @@ if __name__ == "__main__":
     axes[0, 1].grid(True, alpha=0.3)
 
     # 3. Model Information
-    model_info = f"""Model: Gaussian Naive Bayes (sklearn)
-Var Smoothing: {model.var_smoothing}
-Class Priors: {model.class_prior_}
+    model_info = f"""Model: XGBoost
+N Estimators: {model.n_estimators}
+Max Depth: {model.max_depth}
+Learning Rate: {model.learning_rate}
+Subsample: {model.subsample}
+Col Sample by Tree: {model.colsample_bytree}
+Scale Pos Weight: {model.scale_pos_weight:.2f}
 
 Training Samples: {len(X_train_scaled)}
 Test Samples: {len(X_test_scaled)}
 """
     axes[1, 0].text(0.1, 0.9, model_info, fontsize=12, family='monospace',
                     verticalalignment='top', transform=axes[1, 0].transAxes,
-                    bbox=dict(boxstyle='round', facecolor='moccasin', alpha=0.5))
+                    bbox=dict(boxstyle='round', facecolor='lightsalmon', alpha=0.5))
     axes[1, 0].axis('off')
     axes[1, 0].set_title('Model Information', fontsize=14, fontweight='bold')
 
-    # 4. Class-wise Mean Feature Values
-    feature_names = X.columns.tolist()
-    n_features_to_show = min(10, len(feature_names))
-    top_features_idx = np.argsort(np.abs(model.theta_[1] - model.theta_[0]))[-n_features_to_show:]
+    # 4. Feature Importance
+    feature_importance = pd.DataFrame({
+        'Feature': X.columns,
+        'Importance': model.feature_importances_
+    })
+    feature_importance = feature_importance.sort_values('Importance', ascending=False).head(10)
     
-    x_pos = np.arange(n_features_to_show)
-    width = 0.35
-    axes[1, 1].barh(x_pos - width/2, model.theta_[0][top_features_idx], width, label='Class 0', color='skyblue')
-    axes[1, 1].barh(x_pos + width/2, model.theta_[1][top_features_idx], width, label='Class 1', color='salmon')
-    axes[1, 1].set_yticks(x_pos)
-    axes[1, 1].set_yticklabels([feature_names[i] for i in top_features_idx])
-    axes[1, 1].set_xlabel('Mean Value', fontsize=12)
-    axes[1, 1].set_title('Top Feature Means by Class', fontsize=14, fontweight='bold')
-    axes[1, 1].legend()
+    axes[1, 1].barh(range(len(feature_importance)), feature_importance['Importance'], color='crimson')
+    axes[1, 1].set_yticks(range(len(feature_importance)))
+    axes[1, 1].set_yticklabels(feature_importance['Feature'])
+    axes[1, 1].set_xlabel('Importance', fontsize=12)
+    axes[1, 1].set_title('Top 10 Feature Importance', fontsize=14, fontweight='bold')
     axes[1, 1].grid(True, alpha=0.3, axis='x')
 
     plt.tight_layout()
     
     os.makedirs('../visualizations', exist_ok=True)
-    plt.savefig('../visualizations/naive_bayes_analysis.png', dpi=300, bbox_inches='tight')
-    print(f"\n✓ Visualization saved to: visualizations/naive_bayes_analysis.png")
+    plt.savefig('../visualizations/xgboost_analysis.png', dpi=300, bbox_inches='tight')
+    print(f"\n✓ Visualization saved to: visualizations/xgboost_analysis.png")
     plt.show()
 
     # Metrics Bar Chart
@@ -318,7 +359,7 @@ Test Samples: {len(X_test_scaled)}
                   color=['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#6A994E', '#8E44AD'])
     ax.set_ylim([0, 1])
     ax.set_ylabel('Score', fontsize=12, fontweight='bold')
-    ax.set_title('Naive Bayes - Performance Metrics Summary', fontsize=14, fontweight='bold')
+    ax.set_title('XGBoost - Performance Metrics Summary', fontsize=14, fontweight='bold')
     ax.grid(True, alpha=0.3, axis='y')
     
     for bar in bars:
@@ -329,8 +370,8 @@ Test Samples: {len(X_test_scaled)}
     
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
-    plt.savefig('../visualizations/naive_bayes_metrics.png', dpi=300, bbox_inches='tight')
-    print(f"✓ Metrics chart saved to: visualizations/naive_bayes_metrics.png")
+    plt.savefig('../visualizations/xgboost_metrics.png', dpi=300, bbox_inches='tight')
+    print(f"✓ Metrics chart saved to: visualizations/xgboost_metrics.png")
     plt.show()
 
     print("\n" + "="*60)
