@@ -145,7 +145,7 @@ ML_assignment2/
 The Streamlit application is deployed using **Streamlit Community Cloud**.
 
 - **GitHub Repository**: [Link](https://github.com/Vi23nay/ML_assignment2)
-- **Live Streamlit App**: [Link](https://<your-app>.streamlit.app)
+- **Live Streamlit App**: [Link](https://mlassignment2-yuqgewcmhvrjyp4msghdfm.streamlit.app)
 
 ---
 
